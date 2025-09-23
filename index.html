@@ -19,7 +19,7 @@
             .hidden{display:none}
         </style>
     </head>
-    
+
     <body>
         <!-- UI -->
         <div id="ui">
@@ -63,7 +63,8 @@
             </a-entity>
         </a-scene>
 
-        <script>
+        <script> 
+        /*
             const sceneEl  = document.querySelector('a-scene');
             const ui       = document.getElementById('ui');
             const startBtn = document.getElementById('startBtn');
@@ -142,7 +143,15 @@
             // Aviso si alguien abre sin HTTPS (no debería pasar en GitHub Pages)
             if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
                 alert('Esta página necesita HTTPS para usar la cámara.');
-            }
+            }*/
+            btn.onclick = async () => {
+                try {
+                const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false});
+                v.srcObject = s;
+                } catch(e) {
+                alert(`${e.name}: ${e.message}`);
+                }
+            };
         </script>
     </body>
 </html>
