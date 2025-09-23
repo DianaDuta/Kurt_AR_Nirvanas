@@ -1,210 +1,181 @@
 <!DOCTYPE html>
 <html lang="es">
-    <head>
-        <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1"/>
-        <title>Kurtis fumando</title>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kurt WebAR</title>
 
-        <!-- Librerías -->
-        <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-aframe.prod.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/aframe-sprite-animation-component@3.8.0/dist/aframe-sprite-animation-component.min.js"></script>
+    <!-- Igual que en el vídeo: A-Frame primero, MindAR después, por CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Animación de sprites en A-Frame -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe-sprite-animation-component@3.8.0/dist/aframe-sprite-animation-component.min.js"></script>
 
-        <style>
-            html,body{margin:0;height:100%;overflow:hidden;background:#000}
-            #ui{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;color:#fff;text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(0,0,0,.7) 0%,rgba(0,0,0,.4) 60%,rgba(0,0,0,0) 100%)}
-            button{padding:12px 18px;font-size:16px;border-radius:12px;border:none;cursor:pointer}
-            #photoBtn,#camBtn{position:fixed;bottom:16px;z-index:11;display:none;background:#fff}
-            #photoBtn{right:16px} #camBtn{left:16px}
-            .hidden{display:none}
-        </style>
-    </head>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      #ui {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        z-index: 10;
+        color: #fff;
+        text-align: center;
+        padding: 24px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(0, 0, 0, 0.7),
+          rgba(0, 0, 0, 0.3)
+        );
+      }
+      button {
+        padding: 12px 18px;
+        font-size: 16px;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+      }
+      #photoBtn,
+      #camBtn {
+        position: fixed;
+        bottom: 16px;
+        z-index: 11;
+        display: none;
+        background: #fff;
+      }
+      #photoBtn {
+        right: 16px;
+      }
+      #camBtn {
+        left: 16px;
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
 
-    <body>
-        <!-- UI -->
-        <div id="ui">
-            <h2>Kurt fumando en Nirvana's</h2>
-            <p>Apunta al marcador y toca “Entrar”.</p>
-            <button id="startBtn">Entrar</button>
-            <small>Si no ves la cámara, abre en Chrome/Safari (no dentro de WhatsApp/IG). Esta página usa HTTPS.</small>
-        </div>
+  <body>
+    <!-- Pantalla inicial (el vídeo también usa un gesto del usuario para la cámara) -->
+    <div id="ui">
+      <h2>Kurt fumando</h2>
+      <p>Apunta al marcador y toca “Entrar”.</p>
+      <button id="startBtn">Entrar</button>
+      <small>Si lo abriste desde WhatsApp/Instagram, pulsa “Abrir en Chrome/Safari”.</small>
+    </div>
 
-        <button id="camBtn">Cambiar cámara</button>
-        <button id="photoBtn">Foto</button>
+    <button id="camBtn">Cambiar cámara</button>
+    <button id="photoBtn">Foto</button>
 
-        <!-- Escena AR (esperamos a 'loaded' y arrancamos por botón) -->
-        <a-scene
-            mindar-image="imageTargetSrc: ./targets.mind; autoStart: false;"
-            renderer="colorManagement: true, physicallyCorrectLights"
-            vr-mode-ui="enabled: false"
-            device-orientation-permission-ui="enabled: false">
+    <!-- Escena A-Frame con MindAR (image tracking), exactamente la misma integración que en el vídeo) -->
+    <a-scene
+      mindar-image="imageTargetSrc: ./targets.mind; autoStart: false;"
+      renderer="colorManagement: true, physicallyCorrectLights"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+    >
+      <a-assets>
+        <img id="kurtSheet" src="./spritesheet_kurt.png" />
+      </a-assets>
 
-            <a-assets>
-                <img id="kurtSheet" src="./spritesheet_kurt.png" />
-            </a-assets>
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-                <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <!-- Todo lo que “aparece” va colgado del target, como en el vídeo -->
+      <a-entity id="anchor" mindar-image-target="targetIndex: 0">
+        <!-- Nuestro contenido: un plano con spritesheet 3×1 a escala real (1.8 m de alto) -->
+        <a-plane
+          id="kurtPlane"
+          material="src: #kurtSheet; transparent: true"
+          position="0 0 0"
+          rotation="0 0 0"
+          width="1.32"
+          height="1.8"
+          sprite-animation="
+            src: #kurtSheet;
+            columns: 3;
+            rows: 1;
+            frameCount: 3;
+            fps: 8;
+            loop: true;
+            autoplay: false"
+        ></a-plane>
+      </a-entity>
+    </a-scene>
 
-            <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-                <a-plane
-                    id="kurtPlane"
-                    material="src: #kurtSheet; transparent: true"
-                    position="0 0 0" rotation="0 0 0"
-                    width="1.32" height="1.8"
-                    sprite-animation="
-                    src: #kurtSheet;
-                    columns: 3;
-                    rows: 1;
-                    frameCount: 3;
-                    fps: 3;
-                    loop: true;
-                    autoplay: false">
-                </a-plane>
-            </a-entity>
-        </a-scene>
+    <script>
+      const sceneEl = document.querySelector("a-scene");
+      const ui = document.getElementById("ui");
+      const startBtn = document.getElementById("startBtn");
+      const photoBtn = document.getElementById("photoBtn");
+      const camBtn = document.getElementById("camBtn");
+      const plane = document.getElementById("kurtPlane");
+      const anchor = document.getElementById("anchor");
+      let usingBackCamera = true;
 
-        <script> 
-        /*
-            const sceneEl  = document.querySelector('a-scene');
-            const ui       = document.getElementById('ui');
-            const startBtn = document.getElementById('startBtn');
-            const photoBtn = document.getElementById('photoBtn');
-            const camBtn   = document.getElementById('camBtn');
-            const plane    = document.getElementById('kurtPlane');
-            const anchor   = document.getElementById('anchor');
-            let usingBackCamera = true;
+      // Espera a que A-Frame esté listo (si no, mindar-image-system es undefined)
+      const whenSceneLoaded = new Promise((res) => {
+        if (sceneEl.hasLoaded) res();
+        else sceneEl.addEventListener("loaded", res, { once: true });
+      });
 
-            // Esperar a que A-Frame cargue (si no, los systems están undefined)
-            const whenSceneLoaded = new Promise(res=>{
-                if (sceneEl.hasLoaded) res(); else sceneEl.addEventListener('loaded', res, {once:true});
-            });
+      async function getMindAR() {
+        await whenSceneLoaded;
+        const s = sceneEl.systems["mindar-image-system"];
+        if (!s) throw new Error("MindAR no inicializado");
+        return s;
+      }
 
-            // Acceso seguro al sistema de MindAR
-            async function getMindARSystem(){
-                await whenSceneLoaded;
-                const sys = sceneEl.systems['mindar-image-system'];
-                if (!sys) throw new Error('MindAR no está inicializado todavía.');
-                return sys;
-            }
+      // Igual que el flujo del vídeo: el botón dispara el inicio de MindAR (que pide la cámara)
+      startBtn.addEventListener("click", async () => {
+        try {
+          const mindar = await getMindAR();
+          await mindar.start(); // MindAR hace getUserMedia y mostrará el prompt del sistema
+          ui.classList.add("hidden");
+          photoBtn.style.display = "inline-block";
+          camBtn.style.display = "inline-block";
+        } catch (e) {
+          alert(`No se pudo iniciar la cámara.\n${e.name ?? "Error"}: ${e.message ?? e}`);
+          console.error(e);
+        }
+      });
 
-            // Pedimos permiso con getUserMedia para forzar el prompt del SO
-            async function ensureCameraPermission(){
-                if (!navigator.mediaDevices?.getUserMedia){
-                    throw new Error('Este navegador no soporta getUserMedia o está bloqueado.');
-                }
-                const constraints = { video:{ facingMode:{ ideal:'environment' } }, audio:false };
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Reproducir/pausar animación cuando el marcador aparece/desaparece
+      anchor.addEventListener("targetFound", () =>
+        plane.components["sprite-animation"]?.play()
+      );
+      anchor.addEventListener("targetLost", () =>
+        plane.components["sprite-animation"]?.pause()
+      );
 
-                for (const t of stream.getTracks()) t.stop();     // soltamos cámara
+      // Botón de cambiar cámara (trasera ↔ frontal)
+      camBtn.addEventListener("click", async () => {
+        try {
+          const mindar = await getMindAR();
+          usingBackCamera = !usingBackCamera;
+          await mindar.switchCamera(usingBackCamera ? "environment" : "user");
+        } catch (e) {
+          console.warn("No se pudo cambiar de cámara:", e);
+        }
+      });
 
-                await new Promise(r=>setTimeout(r,50));           // minipausa (Android)
-            }
+      // Botón de foto (A-Frame screenshot)
+      photoBtn.addEventListener("click", () => {
+        sceneEl.components.screenshot.capture("perspective");
+      });
 
-            // Entrar → permiso → start MindAR
-            startBtn.addEventListener('click', async ()=>{
-                try{
-                    await ensureCameraPermission();
-                    const mindar = await getMindARSystem();
-                    await mindar.start();
-
-                    ui.classList.add('hidden');
-                    photoBtn.style.display = 'inline-block';
-                    camBtn.style.display   = 'inline-block';
-                }catch(e){
-                    alert(`No se pudo iniciar la cámara.\n${e.name ?? 'Error'}: ${e.message ?? e}`);
-                    console.error(e);
-                }
-            });
-
-            // Animación ON/OFF cuando el marcador aparece/desaparece
-            anchor.addEventListener('targetFound', ()=> {
-                const comp = plane.components['sprite-animation']; if(comp) comp.play();
-            });
-            anchor.addEventListener('targetLost', ()=> {
-                const comp = plane.components['sprite-animation']; if(comp) comp.pause();
-            });
-
-            // Cambiar cámara (usa siempre el sistema ya cargado)
-            camBtn.addEventListener('click', async ()=>{
-                try{
-                    const mindar = await getMindARSystem();
-                    usingBackCamera = !usingBackCamera;
-                    await mindar.switchCamera(usingBackCamera ? 'environment' : 'user');
-                }catch(e){
-                    console.warn('No se pudo cambiar de cámara:', e);
-                }
-            });
-
-            // Foto del canvas
-            photoBtn.addEventListener('click', ()=>{
-                sceneEl.components.screenshot.capture('perspective');
-            });
-
-            // Aviso si alguien abre sin HTTPS (no debería pasar en GitHub Pages)
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                alert('Esta página necesita HTTPS para usar la cámara.');
-            }*/
-            const sceneEl  = document.querySelector('a-scene');
-  const ui       = document.getElementById('ui');
-  const startBtn = document.getElementById('startBtn');
-  const photoBtn = document.getElementById('photoBtn');
-  const camBtn   = document.getElementById('camBtn');
-  const plane    = document.getElementById('kurtPlane');
-  const anchor   = document.getElementById('anchor');
-  let usingBackCamera = true;
-
-  // Espera a que A-Frame cargue (si no, los systems están undefined)
-  const whenSceneLoaded = new Promise(res=>{
-    if (sceneEl.hasLoaded) res(); else sceneEl.addEventListener('loaded', res, {once:true});
-  });
-
-  async function getMindARSystem(){
-    await whenSceneLoaded;
-    const sys = sceneEl.systems['mindar-image-system'];
-    if (!sys) throw new Error('MindAR no está inicializado todavía.');
-    return sys;
-  }
-
-  // Entrar → arranca MindAR (MindAR pedirá la cámara)
-  startBtn.addEventListener('click', async ()=>{
-    try{
-      const mindar = await getMindARSystem();
-      // Si el dispositivo tiene varias cámaras, puedes indicar preferencia:
-      // await mindar.switchCamera('environment'); // antes de start (algunos móviles lo permiten)
-      await mindar.start(); // <- MindAR hace getUserMedia y mostrará el prompt
-      ui.classList.add('hidden');
-      photoBtn.style.display = 'inline-block';
-      camBtn.style.display   = 'inline-block';
-    }catch(e){
-      alert(`No se pudo iniciar la cámara.\n${e.name ?? 'Error'}: ${e.message ?? e}`);
-      console.error(e);
-    }
-  });
-
-  // Animación ON/OFF según el marcador
-  anchor.addEventListener('targetFound', ()=>plane.components['sprite-animation']?.play());
-  anchor.addEventListener('targetLost',  ()=>plane.components['sprite-animation']?.pause());
-
-  // Cambiar cámara
-  camBtn.addEventListener('click', async ()=>{
-    try{
-      const mindar = await getMindARSystem();
-      usingBackCamera = !usingBackCamera;
-      await mindar.switchCamera(usingBackCamera ? 'environment' : 'user');
-    }catch(e){
-      console.warn('No se pudo cambiar de cámara:', e);
-    }
-  });
-
-  // Foto
-  photoBtn.addEventListener('click', ()=>{
-    sceneEl.components.screenshot.capture('perspective');
-  });
-
-  // Aviso si alguien abre sin HTTPS (GitHub Pages ya usa https)
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    alert('Esta página necesita HTTPS para usar la cámara.');
-  }
-        </script>
-    </body>
+      // Aviso si alguien abre sin HTTPS (la cámara exige https salvo localhost)
+      if (location.protocol !== "https:" && location.hostname !== "localhost") {
+        alert("Esta página necesita HTTPS para usar la cámara.");
+      }
+    </script>
+  </body>
 </html>
