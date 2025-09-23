@@ -44,18 +44,18 @@
         <button id="camBtn">Cambiar cámara</button>
         <button id="photoBtn">Foto</button>
 
-        <!-- Escena AR (no autoStart: se arranca con el botón) -->
+        <!-- Escena AR (no autoStart: se arranca cuando esté 'loaded') -->
         <a-scene
             mindar-image="imageTargetSrc: ./targets.mind; autoStart: false;"
             renderer="colorManagement: true, physicallyCorrectLights"
             vr-mode-ui="enabled: false"
-            device-orientation-permission-ui="enabled: false"
-        >
+            device-orientation-permission-ui="enabled: false">
+
             <a-assets>
                 <!-- El spritesheet PNG con transparencia -->
                 <img id="kurtSheet" src="./spritesheet_kurt.png" />
                 <!-- Habilita el componente screenshot de A-Frame para el botón Foto -->
-                <a-asset-item id="dummy" src="" crossorigin="anonymous"></a-asset-item>
+                <!--<a-asset-item id="dummy" src="" crossorigin="anonymous"></a-asset-item>-->
             </a-assets>
 
             <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
@@ -95,49 +95,38 @@
 
             let usingBackCamera = true; // por defecto, trasera
 
-            /**
-             * Paso previo: forzar el PROMPT del sistema con getUserMedia()
-             * - Debe ejecutarse justo después de un gesto del usuario (click en "Entrar")
-             * - Si el usuario permite, cerramos el stream inmediatamente (no lo usamos)
-             * - Luego arrancamos MindAR, que ya tendrá permiso y podrá abrir su propio vídeo
-            */
+            // 1) Esperar a que la escena de A-Frame esté TOTALMENTE cargada.
+            //    Hasta que no dispare 'loaded', los "systems" aún no existen.
+            const whenSceneLoaded = new Promise(resolve => {
+                if (sceneEl.hasLoaded) resolve();
+                else sceneEl.addEventListener('loaded', resolve, { once: true });
+            });
 
+            // 2) Utilidad: obtener el sistema MindAR de forma segura (tras 'loaded').
+            async function getMindARSystem() {
+                await whenSceneLoaded; // garantizamos que A-Frame terminó de bootear
+                const sys = sceneEl.systems['mindar-image-system'];
+                if (!sys) throw new Error('MindAR no está inicializado todavía.');
+                return sys;
+            }
+            
+            // 3) Forzar el prompt de permisos ANTES de iniciar MindAR (tras el click).
             async function ensureCameraPermission() {
-            // Facing mode: “environment” intenta usar la trasera; “user” la frontal
+                // facingMode: environment intenta la trasera
                 const constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
 
-                // 1) Comprobación opcional del estado del permiso (no todos los navegadores lo soportan)
-                try {
-                    if (navigator.permissions && navigator.permissions.query) {
-                        const status = await navigator.permissions.query({ name: 'camera' });
-                        // Si ya está concedido, no hace falta pedir stream; MindAR arrancará directamente.
-                        if (status.state === 'granted') return true;
-
-                        // Si está denegado permanentemente, avisamos al usuario para que vaya a Ajustes/Navegador
-                        if (status.state === 'denied') {
-                            throw new Error('La cámara está BLOQUEADA para este sitio. Ve a Ajustes del navegador → Cámara → Permitir para github.io');
-                        }
-                        // Si está en "prompt", seguiremos con getUserMedia para mostrar el diálogo.
-                    }
-                } catch (e) {
-                    // Silenciamos errores de la Permissions API (no soportada en todos)
-                    console.warn('Permissions API no disponible o restringida:', e);
-                }
-
-                // 2) Esto dispara el PROMPT del sistema
+                // Pedimos un stream temporal para que el SO muestre el diálogo de permiso
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-                // 3) Cerramos el stream temporal (MindAR abrirá el suyo)
-                for (const track of stream.getTracks()) track.stop();
-
-                return true;
-                }
+                // Lo cerramos inmediatamente; MindAR abrirá el suyo
+                for (const t of stream.getTracks()) t.stop();
+            }
 
             // Arrancar AR al pulsar botón (permiso de cámara requiere gesto del usuario)
             startBtn.addEventListener('click', async () => {
                 try {
                     await ensureCameraPermission(); // paso previo para forzar prompt
-                    await arSystem().start();     // inicia cámara + tracking
+                    const mindar = await getMindARSystem(); // obtener sistema MindAR
+                    await mindar.start();     // inicia cámara y tracking 
                     ui.classList.add('hidden');
                     photoBtn.style.display = 'inline-block';
                     camBtn.style.display   = 'inline-block';
