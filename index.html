@@ -144,14 +144,67 @@
             if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
                 alert('Esta página necesita HTTPS para usar la cámara.');
             }*/
-            btn.onclick = async () => {
-                try {
-                const s = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false});
-                v.srcObject = s;
-                } catch(e) {
-                alert(`${e.name}: ${e.message}`);
-                }
-            };
+            const sceneEl  = document.querySelector('a-scene');
+  const ui       = document.getElementById('ui');
+  const startBtn = document.getElementById('startBtn');
+  const photoBtn = document.getElementById('photoBtn');
+  const camBtn   = document.getElementById('camBtn');
+  const plane    = document.getElementById('kurtPlane');
+  const anchor   = document.getElementById('anchor');
+  let usingBackCamera = true;
+
+  // Espera a que A-Frame cargue (si no, los systems están undefined)
+  const whenSceneLoaded = new Promise(res=>{
+    if (sceneEl.hasLoaded) res(); else sceneEl.addEventListener('loaded', res, {once:true});
+  });
+
+  async function getMindARSystem(){
+    await whenSceneLoaded;
+    const sys = sceneEl.systems['mindar-image-system'];
+    if (!sys) throw new Error('MindAR no está inicializado todavía.');
+    return sys;
+  }
+
+  // Entrar → arranca MindAR (MindAR pedirá la cámara)
+  startBtn.addEventListener('click', async ()=>{
+    try{
+      const mindar = await getMindARSystem();
+      // Si el dispositivo tiene varias cámaras, puedes indicar preferencia:
+      // await mindar.switchCamera('environment'); // antes de start (algunos móviles lo permiten)
+      await mindar.start(); // <- MindAR hace getUserMedia y mostrará el prompt
+      ui.classList.add('hidden');
+      photoBtn.style.display = 'inline-block';
+      camBtn.style.display   = 'inline-block';
+    }catch(e){
+      alert(`No se pudo iniciar la cámara.\n${e.name ?? 'Error'}: ${e.message ?? e}`);
+      console.error(e);
+    }
+  });
+
+  // Animación ON/OFF según el marcador
+  anchor.addEventListener('targetFound', ()=>plane.components['sprite-animation']?.play());
+  anchor.addEventListener('targetLost',  ()=>plane.components['sprite-animation']?.pause());
+
+  // Cambiar cámara
+  camBtn.addEventListener('click', async ()=>{
+    try{
+      const mindar = await getMindARSystem();
+      usingBackCamera = !usingBackCamera;
+      await mindar.switchCamera(usingBackCamera ? 'environment' : 'user');
+    }catch(e){
+      console.warn('No se pudo cambiar de cámara:', e);
+    }
+  });
+
+  // Foto
+  photoBtn.addEventListener('click', ()=>{
+    sceneEl.components.screenshot.capture('perspective');
+  });
+
+  // Aviso si alguien abre sin HTTPS (GitHub Pages ya usa https)
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+    alert('Esta página necesita HTTPS para usar la cámara.');
+  }
         </script>
     </body>
 </html>
