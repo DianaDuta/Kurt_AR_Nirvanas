@@ -103,34 +103,35 @@
             */
 
             async function ensureCameraPermission() {
-      // Facing mode: “environment” intenta usar la trasera; “user” la frontal
-      const constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
+            // Facing mode: “environment” intenta usar la trasera; “user” la frontal
+                const constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
 
-      // 1) Comprobación opcional del estado del permiso (no todos los navegadores lo soportan)
-      try {
-        if (navigator.permissions && navigator.permissions.query) {
-          const status = await navigator.permissions.query({ name: 'camera' });
-          // Si ya está concedido, no hace falta pedir stream; MindAR arrancará directamente.
-          if (status.state === 'granted') return true;
-          // Si está denegado permanentemente, avisamos al usuario para que vaya a Ajustes/Navegador
-          if (status.state === 'denied') {
-            throw new Error('La cámara está BLOQUEADA para este sitio. Ve a Ajustes del navegador → Cámara → Permitir para github.io');
-          }
-          // Si está en "prompt", seguiremos con getUserMedia para mostrar el diálogo.
-        }
-      } catch (e) {
-        // Silenciamos errores de la Permissions API (no soportada en todos)
-        console.warn('Permissions API no disponible o restringida:', e);
-      }
+                // 1) Comprobación opcional del estado del permiso (no todos los navegadores lo soportan)
+                try {
+                    if (navigator.permissions && navigator.permissions.query) {
+                        const status = await navigator.permissions.query({ name: 'camera' });
+                        // Si ya está concedido, no hace falta pedir stream; MindAR arrancará directamente.
+                        if (status.state === 'granted') return true;
 
-      // 2) Esto dispara el PROMPT del sistema
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        // Si está denegado permanentemente, avisamos al usuario para que vaya a Ajustes/Navegador
+                        if (status.state === 'denied') {
+                            throw new Error('La cámara está BLOQUEADA para este sitio. Ve a Ajustes del navegador → Cámara → Permitir para github.io');
+                        }
+                        // Si está en "prompt", seguiremos con getUserMedia para mostrar el diálogo.
+                    }
+                } catch (e) {
+                    // Silenciamos errores de la Permissions API (no soportada en todos)
+                    console.warn('Permissions API no disponible o restringida:', e);
+                }
 
-      // 3) Cerramos el stream temporal (MindAR abrirá el suyo)
-      for (const track of stream.getTracks()) track.stop();
+                // 2) Esto dispara el PROMPT del sistema
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-      return true;
-    }
+                // 3) Cerramos el stream temporal (MindAR abrirá el suyo)
+                for (const track of stream.getTracks()) track.stop();
+
+                return true;
+                }
 
             // Arrancar AR al pulsar botón (permiso de cámara requiere gesto del usuario)
             startBtn.addEventListener('click', async () => {
@@ -164,6 +165,7 @@
                 }
             });
 
+            
             // Botón de foto: usa el componente screenshot incluido en A-Frame
             photoBtn.addEventListener('click', () => {
                 sceneEl.components.screenshot.capture('perspective');
