@@ -2,7 +2,7 @@
 <html lang="es">
     <head>
         <meta charset="utf-8"/>
-        <meta name="viewport" content="width=device-width, initial-cale"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
         <title>Kurtis fumando</title>
 
         <!-- Librerías desde CDN -->
@@ -93,17 +93,55 @@
             const plane    = document.getElementById('kurtPlane');
             const anchor   = document.getElementById('anchor');
 
-            let usingBackCamera = true;
+            let usingBackCamera = true; // por defecto, trasera
+
+            /**
+             * Paso previo: forzar el PROMPT del sistema con getUserMedia()
+             * - Debe ejecutarse justo después de un gesto del usuario (click en "Entrar")
+             * - Si el usuario permite, cerramos el stream inmediatamente (no lo usamos)
+             * - Luego arrancamos MindAR, que ya tendrá permiso y podrá abrir su propio vídeo
+            */
+
+            async function ensureCameraPermission() {
+      // Facing mode: “environment” intenta usar la trasera; “user” la frontal
+      const constraints = { video: { facingMode: { ideal: 'environment' } }, audio: false };
+
+      // 1) Comprobación opcional del estado del permiso (no todos los navegadores lo soportan)
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const status = await navigator.permissions.query({ name: 'camera' });
+          // Si ya está concedido, no hace falta pedir stream; MindAR arrancará directamente.
+          if (status.state === 'granted') return true;
+          // Si está denegado permanentemente, avisamos al usuario para que vaya a Ajustes/Navegador
+          if (status.state === 'denied') {
+            throw new Error('La cámara está BLOQUEADA para este sitio. Ve a Ajustes del navegador → Cámara → Permitir para github.io');
+          }
+          // Si está en "prompt", seguiremos con getUserMedia para mostrar el diálogo.
+        }
+      } catch (e) {
+        // Silenciamos errores de la Permissions API (no soportada en todos)
+        console.warn('Permissions API no disponible o restringida:', e);
+      }
+
+      // 2) Esto dispara el PROMPT del sistema
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // 3) Cerramos el stream temporal (MindAR abrirá el suyo)
+      for (const track of stream.getTracks()) track.stop();
+
+      return true;
+    }
 
             // Arrancar AR al pulsar botón (permiso de cámara requiere gesto del usuario)
             startBtn.addEventListener('click', async () => {
                 try {
+                    await ensureCameraPermission(); // paso previo para forzar prompt
                     await arSystem().start();     // inicia cámara + tracking
                     ui.classList.add('hidden');
                     photoBtn.style.display = 'inline-block';
                     camBtn.style.display   = 'inline-block';
                 } catch (e) {
-                    alert('No se pudo iniciar la cámara. ¿HTTPS? ¿Permisos?');
+                    alert(`No se pudo iniciar la cámara.\n${e.name ?? 'Error'}: ${e.message ?? e}`);
                     console.error(e);
                 }
             });
@@ -122,7 +160,7 @@
                 try {
                     await arSystem().switchCamera(usingBackCamera ? 'environment' : 'user');
                 } catch (e) {
-                    console.warn('Este dispositivo no soporta cambio de cámara dinámico.');
+                    console.warn('Este dispositivo no soporta cambio de cámara dinámico.', e);
                 }
             });
 
