@@ -56,77 +56,91 @@
     <!-- Botón centrado abajo -->
     <button id="btnPhoto">Foto</button>
 
-    
-  <script>
-    (function () {
-      const scene = document.querySelector('a-scene');
-      const btn = document.getElementById('btnPhoto');
+    <script>
+      (function () {
+        const scene = document.querySelector('a-scene');
+        const btn = document.getElementById('btnPhoto');
 
-      // Espera a que MindAR esté listo (para tener el video disponible)
-      scene.addEventListener('arReady', () => {
-        // opcional: console.log('MindAR listo');
-      });
+        // Desactiva el botón hasta que el vídeo esté listo
+        btn.disabled = true;
 
-      function composeAndDownload() {
-        const mindar = scene.systems['mindar-image'];
-        const video = mindar && mindar.video;
-        const glCanvas = scene.canvas; // canvas WebGL (AR)
+        function enableWhenVideoReady() {
+          const mindar = scene.systems['mindar-image'];
+          const video = mindar && mindar.video;
 
-        if (!video || video.readyState < 2) {
-          alert('La cámara aún no está lista. Intenta de nuevo en un segundo.');
-          return;
+          if (!video) {
+            // MindAR aún no ha creado el <video>. Reintenta en el próximo frame.
+            requestAnimationFrame(enableWhenVideoReady);
+            return;
+          }
+
+          const markReady = () => { btn.disabled = false; };
+
+          if (video.readyState >= 2) {
+            markReady();
+          } else {
+            // Espera a que el vídeo esté reproducible
+            video.addEventListener('canplay', markReady, { once: true });
+            video.addEventListener('loadedmetadata', markReady, { once: true });
+          }
         }
 
-        // Medidas nativas del vídeo (suelen ser apaisadas)
-        let vw = video.videoWidth;
-        let vh = video.videoHeight;
+        // Cuando MindAR está listo, empezamos a vigilar el vídeo
+        scene.addEventListener('arReady', enableWhenVideoReady);
+        // Por si arReady ya pasó antes de registrar el listener:
+        if (scene.hasLoaded) requestAnimationFrame(enableWhenVideoReady);
 
-        // Canvas de composición
-        // Si estás en vertical (pantalla más alta que ancha) y el video viene en apaisado,
-        // rotamos 90º para que el PNG salga "vertical" como lo ves.
-        const isPortrait = window.innerHeight > window.innerWidth && vw > vh;
+        function composeAndDownload() {
+          const mindar = scene.systems['mindar-image'];
+          const video = mindar && mindar.video;
+          const glCanvas = scene.canvas;
 
-        const comp = document.createElement('canvas');
-        const ctx = comp.getContext('2d');
+          if (!video || video.readyState < 2) {
+            alert('La cámara aún no está lista. Intenta de nuevo en un segundo.');
+            return;
+          }
 
-        if (isPortrait) {
-          comp.width = vh;
-          comp.height = vw;
-          // Rotar 90º horario: trasladamos y giramos
-          ctx.translate(comp.width, 0);
-          ctx.rotate(Math.PI / 2);
-          // Dibuja el vídeo (sin espejo; MindAR ya lo muestra correcto para cámara trasera)
-          ctx.drawImage(video, 0, 0, vw, vh);
-          // Ahora superponemos el canvas AR escalándolo al mismo tamaño del vídeo
-          ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
-        } else {
-          comp.width = vw;
-          comp.height = vh;
-          ctx.drawImage(video, 0, 0, vw, vh);
-          ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+          let vw = video.videoWidth, vh = video.videoHeight;
+          const isPortrait = window.innerHeight > window.innerWidth && vw > vh;
+
+          const comp = document.createElement('canvas');
+          const ctx = comp.getContext('2d');
+
+          if (isPortrait) {
+            comp.width = vh;
+            comp.height = vw;
+            ctx.translate(comp.width, 0);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(video, 0, 0, vw, vh);
+            ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+          } else {
+            comp.width = vw;
+            comp.height = vh;
+            ctx.drawImage(video, 0, 0, vw, vh);
+            ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+          }
+
+          try {
+            const dataURL = comp.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'Kurt_WebAR.png';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+            if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
+          } catch (e) {
+            console.error(e);
+            alert('No se pudo guardar la foto. Prueba desde el navegador del sistema.');
+          }
         }
 
-        try {
-          const dataURL = comp.toDataURL('image/png');
-          const a = document.createElement('a');
-          a.href = dataURL;
-          a.download = 'Kurt_WebAR.png';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
+        btn.addEventListener('click', composeAndDownload);
+      })();
+    </script>
 
-          // Fallback iOS: abrir en nueva pestaña
-          const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-          if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
-        } catch (e) {
-          console.error(e);
-          alert('No se pudo guardar la foto. Prueba desde el navegador del sistema.');
-        }
-      }
-
-      btn.addEventListener('click', composeAndDownload);
-    })();
-  </script>
     
   </body>
 </html>
