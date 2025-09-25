@@ -27,11 +27,11 @@
       #btnPhoto[disabled] { opacity:.5; cursor:not-allowed; }
     </style>
   </head>
-  
+
   <body>
     <a-scene
       mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/target.mind"
-      renderer="antialias: true"
+      renderer="antialias: true; preserverDrawingBuffer: true; alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
       <a-assets timeout="60000">
@@ -88,7 +88,10 @@
 
         async function composeAndDownload() {
           // Verifica que canvas y renderer existen
-          const glCanvas = scene.canvas || (scene.renderer && scene.renderer.domElement);
+          //const glCanvas = scene.canvas || (scene.renderer && scene.renderer.domElement);
+          const renderer = scene.renderer;
+          const glCanvas = renderer && renderer.domElement; 
+
           if (!glCanvas) {
             alert('El canvas aún no está listo. Espera un momento y vuelve a probar.');
             return;
@@ -102,6 +105,10 @@
             return;
           }
 
+          // Espera 1 frame para asegurar que el buffer WebGL está dibujado
+          await new Promise(r => requestAnimationFrame(r));
+          
+          // Obtiene dimensiones del vídeo
           const vw = video.videoWidth;
           const vh = video.videoHeight;
 
