@@ -56,33 +56,77 @@
     <!-- Botón centrado abajo -->
     <button id="btnPhoto">Foto</button>
 
-    <script>
-      (function () {
-        const sceneEl = document.querySelector('a-scene');
-        const btn = document.getElementById('btnPhoto');
+    
+  <script>
+    (function () {
+      const scene = document.querySelector('a-scene');
+      const btn = document.getElementById('btnPhoto');
 
-        btn.addEventListener('click', () => {
-          try {
-            const canvas = sceneEl.components.screenshot.getCanvas('perspective');
-            if (!canvas) throw new Error('No se pudo obtener el canvas');
-            const dataURL = canvas.toDataURL('image/png');
+      // Espera a que MindAR esté listo (para tener el video disponible)
+      scene.addEventListener('arReady', () => {
+        // opcional: console.log('MindAR listo');
+      });
 
-            const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = 'Kurt_WebAR.png';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+      function composeAndDownload() {
+        const mindar = scene.systems['mindar-image'];
+        const video = mindar && mindar.video;
+        const glCanvas = scene.canvas; // canvas WebGL (AR)
 
-            const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-            if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
-          } catch (e) {
-            console.error(e);
-            alert('No se pudo hacer la captura. Reintenta desde el navegador del sistema.');
-          }
-        });
-      })();
-    </script>
+        if (!video || video.readyState < 2) {
+          alert('La cámara aún no está lista. Intenta de nuevo en un segundo.');
+          return;
+        }
+
+        // Medidas nativas del vídeo (suelen ser apaisadas)
+        let vw = video.videoWidth;
+        let vh = video.videoHeight;
+
+        // Canvas de composición
+        // Si estás en vertical (pantalla más alta que ancha) y el video viene en apaisado,
+        // rotamos 90º para que el PNG salga "vertical" como lo ves.
+        const isPortrait = window.innerHeight > window.innerWidth && vw > vh;
+
+        const comp = document.createElement('canvas');
+        const ctx = comp.getContext('2d');
+
+        if (isPortrait) {
+          comp.width = vh;
+          comp.height = vw;
+          // Rotar 90º horario: trasladamos y giramos
+          ctx.translate(comp.width, 0);
+          ctx.rotate(Math.PI / 2);
+          // Dibuja el vídeo (sin espejo; MindAR ya lo muestra correcto para cámara trasera)
+          ctx.drawImage(video, 0, 0, vw, vh);
+          // Ahora superponemos el canvas AR escalándolo al mismo tamaño del vídeo
+          ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+        } else {
+          comp.width = vw;
+          comp.height = vh;
+          ctx.drawImage(video, 0, 0, vw, vh);
+          ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+        }
+
+        try {
+          const dataURL = comp.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = dataURL;
+          a.download = 'Kurt_WebAR.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+
+          // Fallback iOS: abrir en nueva pestaña
+          const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+          if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
+        } catch (e) {
+          console.error(e);
+          alert('No se pudo guardar la foto. Prueba desde el navegador del sistema.');
+        }
+      }
+
+      btn.addEventListener('click', composeAndDownload);
+    })();
+  </script>
     
   </body>
 </html>
