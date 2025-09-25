@@ -8,6 +8,8 @@
     <!-- Librerías necesarias -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- Animación por spritesheet -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe-sprite-animation-component@3.8.0/dist/aframe-sprite-animation-component.min.js"></script>
 
     <style>
       #btnPhoto{
@@ -31,24 +33,28 @@
   <body>
     <a-scene
       mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/target.mind"
-      renderer="antialias: true; preserverDrawingBuffer: true; alpha: true"
+      renderer="antialias: true; preserveDrawingBuffer: true; alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
+
       <a-assets timeout="60000">
-        <img id="kurt"
-            src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt.png"
-            crossorigin="anonymous">
+        <!-- Spritesheet 3x1 -->
+        <img id="kurtSheet"
+             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/spritesheet_kurt.png"
+             crossorigin="anonymous">
       </a-assets>
 
       <a-camera look-controls="enabled: false"></a-camera>
 
       <a-entity mindar-image-target="targetIndex: 0">
         <a-plane
-          src="#kurt"
+          id="kurtPlane"
+          src="#kurtSheet"
           position="0 0 0.02"
           width="1"
           height="1.3"
-          material="transparent: true">
+          material="transparent: true; alphaTest: 0.5"
+          sprite-animation="rows:1; cols:3; frameCount:3; fps:0; loop:true;">
         </a-plane>
       </a-entity>
     </a-scene>
@@ -60,9 +66,23 @@
         const scene = document.querySelector('a-scene');
         const btn   = document.getElementById('btnPhoto');
 
+        // Arranca/pausa la animación cuando el target se detecta/pierde
+        const target = document.querySelector('[mindar-image-target]');
+        const plane  = document.getElementById('kurtPlane');
+
+        target.addEventListener('targetFound', () => {
+          // Empieza la animación (fps > 0)
+          plane.setAttribute('sprite-animation', 'rows:1; cols:3; frameCount:3; fps:6; loop:true;');
+        });
+
+        target.addEventListener('targetLost', () => {
+          // Pausa la animación (fps = 0)
+          plane.setAttribute('sprite-animation', 'rows:1; cols:3; frameCount:3; fps:0; loop:true;');
+        });
+
         // Espera a que A-Frame inicie el renderer/canvas
         scene.addEventListener('renderstart', () => {
-          // Habilita el botón cuando el vídeo esté listo
+          // Habilita el botón cuando el vídeo (cámara) esté listo
           waitForVideoReady().then(() => {
             btn.disabled = false;
           }).catch(err => {
@@ -74,9 +94,8 @@
         async function waitForVideoReady(timeoutMs = 10000) {
           const start = performance.now();
           while (true) {
-            // Sistema correcto: 'mindar-image-system'
             const sys = scene.systems['mindar-image-system'] || scene.systems['mindar-image'];
-            const video = sys && (sys.video || sys._video); // algunas builds usan _video
+            const video = sys && (sys.video || sys._video);
             if (video && video.readyState >= 2 && video.videoWidth > 0) return video;
 
             if (performance.now() - start > timeoutMs) {
@@ -87,10 +106,8 @@
         }
 
         async function composeAndDownload() {
-          // Verifica que canvas y renderer existen
-          //const glCanvas = scene.canvas || (scene.renderer && scene.renderer.domElement);
           const renderer = scene.renderer;
-          const glCanvas = renderer && renderer.domElement; 
+          const glCanvas = renderer && renderer.domElement;
 
           if (!glCanvas) {
             alert('El canvas aún no está listo. Espera un momento y vuelve a probar.');
@@ -107,8 +124,7 @@
 
           // Espera 1 frame para asegurar que el buffer WebGL está dibujado
           await new Promise(r => requestAnimationFrame(r));
-          
-          // Obtiene dimensiones del vídeo
+
           const vw = video.videoWidth;
           const vh = video.videoHeight;
 
@@ -146,7 +162,6 @@
             if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
           } catch (e) {
             console.error(e);
-            // Error común: "Tainted canvases may not be exported"
             alert('No se pudo generar la imagen. Si ves este error a menudo, es por CORS/seguridad del navegador.');
           }
         }
