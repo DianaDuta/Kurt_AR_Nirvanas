@@ -24,16 +24,16 @@
         font: 16px/1.2 system-ui, Arial, sans-serif;
         cursor: pointer;
       }
+      #btnPhoto[disabled] { opacity:.5; cursor:not-allowed; }
     </style>
-
   </head>
+  
   <body>
     <a-scene
       mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/target.mind"
       renderer="antialias: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
-
       <a-assets timeout="60000">
         <img id="kurt"
             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt.png"
@@ -53,75 +53,81 @@
       </a-entity>
     </a-scene>
 
-    <!-- Botón centrado abajo -->
-    <button id="btnPhoto">Foto</button>
+    <button id="btnPhoto" disabled>Foto</button>
 
     <script>
       (function () {
         const scene = document.querySelector('a-scene');
-        const btn = document.getElementById('btnPhoto');
+        const btn   = document.getElementById('btnPhoto');
 
-        // Desactiva el botón hasta que el vídeo esté listo
-        btn.disabled = true;
+        // Espera a que A-Frame inicie el renderer/canvas
+        scene.addEventListener('renderstart', () => {
+          // Habilita el botón cuando el vídeo esté listo
+          waitForVideoReady().then(() => {
+            btn.disabled = false;
+          }).catch(err => {
+            console.error(err);
+            alert('No pude acceder al vídeo de la cámara. Revisa permisos/HTTPS.');
+          });
+        });
 
-        function enableWhenVideoReady() {
-          const mindar = scene.systems['mindar-image'];
-          const video = mindar && mindar.video;
+        async function waitForVideoReady(timeoutMs = 10000) {
+          const start = performance.now();
+          while (true) {
+            // Sistema correcto: 'mindar-image-system'
+            const sys = scene.systems['mindar-image-system'] || scene.systems['mindar-image'];
+            const video = sys && (sys.video || sys._video); // algunas builds usan _video
+            if (video && video.readyState >= 2 && video.videoWidth > 0) return video;
 
-          if (!video) {
-            // MindAR aún no ha creado el <video>. Reintenta en el próximo frame.
-            requestAnimationFrame(enableWhenVideoReady);
-            return;
-          }
-
-          const markReady = () => { btn.disabled = false; };
-
-          if (video.readyState >= 2) {
-            markReady();
-          } else {
-            // Espera a que el vídeo esté reproducible
-            video.addEventListener('canplay', markReady, { once: true });
-            video.addEventListener('loadedmetadata', markReady, { once: true });
+            if (performance.now() - start > timeoutMs) {
+              throw new Error('Video no disponible tras esperar suficiente tiempo');
+            }
+            await new Promise(r => setTimeout(r, 100));
           }
         }
 
-        // Cuando MindAR está listo, empezamos a vigilar el vídeo
-        scene.addEventListener('arReady', enableWhenVideoReady);
-        // Por si arReady ya pasó antes de registrar el listener:
-        if (scene.hasLoaded) requestAnimationFrame(enableWhenVideoReady);
-
-        function composeAndDownload() {
-          const mindar = scene.systems['mindar-image'];
-          const video = mindar && mindar.video;
-          const glCanvas = scene.canvas;
-
-          if (!video || video.readyState < 2) {
-            alert('La cámara aún no está lista. Intenta de nuevo en un segundo.');
+        async function composeAndDownload() {
+          // Verifica que canvas y renderer existen
+          const glCanvas = scene.canvas || (scene.renderer && scene.renderer.domElement);
+          if (!glCanvas) {
+            alert('El canvas aún no está listo. Espera un momento y vuelve a probar.');
             return;
           }
 
-          let vw = video.videoWidth, vh = video.videoHeight;
+          let video;
+          try {
+            video = await waitForVideoReady(5000);
+          } catch {
+            alert('La cámara aún no está lista. Acepta permisos y reintenta.');
+            return;
+          }
+
+          const vw = video.videoWidth;
+          const vh = video.videoHeight;
+
+          // Detecta orientación (si la pantalla es vertical y el vídeo llega apaisado)
           const isPortrait = window.innerHeight > window.innerWidth && vw > vh;
 
           const comp = document.createElement('canvas');
-          const ctx = comp.getContext('2d');
-
-          if (isPortrait) {
-            comp.width = vh;
-            comp.height = vw;
-            ctx.translate(comp.width, 0);
-            ctx.rotate(Math.PI / 2);
-            ctx.drawImage(video, 0, 0, vw, vh);
-            ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
-          } else {
-            comp.width = vw;
-            comp.height = vh;
-            ctx.drawImage(video, 0, 0, vw, vh);
-            ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
-          }
+          const ctx  = comp.getContext('2d');
 
           try {
+            if (isPortrait) {
+              comp.width = vh;
+              comp.height = vw;
+              ctx.translate(comp.width, 0);
+              ctx.rotate(Math.PI / 2);
+              ctx.drawImage(video, 0, 0, vw, vh);
+              ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+            } else {
+              comp.width = vw;
+              comp.height = vh;
+              ctx.drawImage(video, 0, 0, vw, vh);
+              ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
+            }
+
             const dataURL = comp.toDataURL('image/png');
+
             const a = document.createElement('a');
             a.href = dataURL;
             a.download = 'Kurt_WebAR.png';
@@ -133,14 +139,13 @@
             if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
           } catch (e) {
             console.error(e);
-            alert('No se pudo guardar la foto. Prueba desde el navegador del sistema.');
+            // Error común: "Tainted canvases may not be exported"
+            alert('No se pudo generar la imagen. Si ves este error a menudo, es por CORS/seguridad del navegador.');
           }
         }
 
         btn.addEventListener('click', composeAndDownload);
       })();
     </script>
-
-    
   </body>
 </html>
