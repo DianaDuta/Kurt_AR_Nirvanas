@@ -1,165 +1,25 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Kurt WebAR</title>
 
-  <!-- A-Frame + MindAR A-Frame (como en la doc) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  </head>
+  <body>
+    <a-scene mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      <a-assets>
+	<img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" />
+	<a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf"></a-asset-item>
+      </a-assets>
 
-  <style>
-    html,body{margin:0;height:100%;overflow:hidden;background:#000}
-    #ui{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10;color:#fff;text-align:center;padding:24px;background:radial-gradient(ellipse at center,rgba(0,0,0,.7),rgba(0,0,0,.3))}
-    button{padding:12px 18px;font-size:16px;border-radius:12px;border:none;cursor:pointer}
-    #photoBtn,#camBtn{position:fixed;bottom:16px;z-index:11;display:none;background:#fff}
-    #photoBtn{right:16px} #camBtn{left:16px}
-    .hidden{display:none}
-    /* 🔒 Oculta los botones VR/AR de A-Frame */
-    .a-enter-vr-button, .a-enter-ar-button { display:none !important; }
-    #status{opacity:.9;font-size:14px;max-width:520px}
-    #toggleDemo{font-size:13px;background:#222;color:#fff;border:1px solid #555;border-radius:8px;padding:8px 10px}
-  </style>
-</head>
-<body>
-  <!-- UI -->
-  <div id="ui">
-    <h2>Kurt fumando</h2>
-    <p>Apunta al marcador y toca “Entrar”.</p>
-    <button id="startBtn">Entrar</button>
-    <small>Si lo abriste desde WhatsApp/Instagram, pulsa “Abrir en Chrome/Safari”.</small>
-    <div id="status"></div>
-    <button id="toggleDemo" class="hidden"></button>
-  </div>
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-  <button id="camBtn">Cambiar cámara</button>
-  <button id="photoBtn">Foto</button>
-
-  <a-scene
-    id="scene"
-    mindar-image="imageTargetSrc: ./targets.mind; autoStart: false;"
-    renderer="colorManagement: true, physicallyCorrectLights"
-    vr-mode-ui="enabled: false"
-    xr-mode-ui="enabled: false"    <!-- oculta UI XR nueva -->
-    device-orientation-permission-ui="enabled: false"
-    embedded                        <!-- evita pantalla completa con UI propia -->
-  >
-    <a-assets>
-      <img id="kurtSheet" src="./spritesheet_kurt.png" />
-    </a-assets>
-
-    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
-
-    <a-entity id="anchor" mindar-image-target="targetIndex: 0">
-      <a-plane
-        id="kurtPlane"
-        material="src:#kurtSheet;transparent:true"
-        position="0 0 0" rotation="0 0 0"
-        width="1.32" height="1.8"
-        sprite-animation="src:#kurtSheet;columns:3;rows:1;frameCount:3;fps:8;loop:true;autoplay:false">
-      </a-plane>
-    </a-entity>
-  </a-scene>
-
-  <script>
-    const sceneEl   = document.getElementById('scene');
-    const ui        = document.getElementById('ui');
-    const statusEl  = document.getElementById('status');
-    const startBtn  = document.getElementById('startBtn');
-    const photoBtn  = document.getElementById('photoBtn');
-    const camBtn    = document.getElementById('camBtn');
-    const plane     = document.getElementById('kurtPlane');
-    const anchor    = document.getElementById('anchor');
-    const toggleDemoBtn = document.getElementById('toggleDemo');
-
-    let arSystem = null;
-    let usingBackCamera = true;
-    let useDemoMind = false;
-
-    const DEMO_MIND = 'https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind';
-
-    function setStatus(msg){ statusEl.textContent = msg || ''; }
-
-    // Cuando A-Frame termina de cargar, obtenemos el sistema
-    sceneEl.addEventListener('loaded', () => {
-      arSystem = sceneEl.systems['mindar-image-system'];
-      setStatus('Listo. Pulsa Entrar para activar la cámara.');
-      // Muestra el botón para probar el .mind de demo
-      toggleDemoBtn.classList.remove('hidden');
-      toggleDemoBtn.textContent = 'Usar .mind de DEMO (para probar)';
-    });
-
-    // Pre-flight: comprueba que el .mind actual responde 200
-    async function preflightMind() {
-      const current = sceneEl.getAttribute('mindar-image')?.imageTargetSrc;
-      try {
-        setStatus('Comprobando targets.mind…');
-        const res = await fetch(current, { method: 'HEAD', cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status} al cargar ${current}`);
-        setStatus('targets.mind OK. Solicitando cámara…');
-        return true;
-      } catch (e) {
-        alert(`No se pudo cargar ${current}\n${e.message}`);
-        setStatus(`Fallo cargando ${current}. Prueba el botón "Usar .mind de DEMO".`);
-        return false;
-      }
-    }
-
-    // Cambiar entre tu targets.mind y el de demo
-    toggleDemoBtn.addEventListener('click', () => {
-      useDemoMind = !useDemoMind;
-      const src = useDemoMind ? DEMO_MIND : './targets.mind';
-      sceneEl.setAttribute('mindar-image', `imageTargetSrc: ${src}; autoStart: false;`);
-      toggleDemoBtn.textContent = useDemoMind ? 'Volver a tu targets.mind' : 'Usar .mind de DEMO (para probar)';
-      setStatus(`Seleccionado: ${useDemoMind ? 'DEMO' : 'tu targets.mind'}. Pulsa Entrar.`);
-    });
-
-    startBtn.addEventListener('click', async () => {
-      try {
-        if (!arSystem) throw new Error('MindAR no inicializado aún');
-        // Comprueba que el .mind es accesible antes de arrancar
-        const ok = await preflightMind();
-        if (!ok) return;
-
-        await arSystem.start(); // pide permiso de cámara
-        ui.classList.add('hidden');
-        photoBtn.style.display = 'inline-block';
-        camBtn.style.display = 'inline-block';
-      } catch (e) {
-        alert(`No se pudo iniciar la cámara.\n${e.name ?? 'Error'}: ${e.message ?? e}`);
-        setStatus('Fallo al iniciar. Revisa permisos de cámara en el candado de la barra de direcciones.');
-        console.error(e);
-      }
-    });
-
-    // Eventos MindAR
-    sceneEl.addEventListener('arReady', () => setStatus(''));
-    sceneEl.addEventListener('arError', (ev) => {
-      const msg = ev?.detail?.message || 'Fallo al iniciar AR';
-      alert('MindAR: ' + msg);
-      setStatus(msg);
-    });
-
-    // Animación on/off por tracking
-    anchor.addEventListener('targetFound', () => plane.components['sprite-animation']?.play());
-    anchor.addEventListener('targetLost',  () => plane.components['sprite-animation']?.pause());
-
-    // Cambiar cámara
-    camBtn.addEventListener('click', async () => {
-      try {
-        usingBackCamera = !usingBackCamera;
-        await arSystem?.switchCamera(usingBackCamera ? 'environment' : 'user');
-      } catch (e) { console.warn('No se pudo cambiar de cámara:', e); }
-    });
-
-    // Foto
-    photoBtn.addEventListener('click', () => sceneEl.components?.screenshot?.capture('perspective'));
-
-    // Aviso HTTPS
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      alert('Esta página necesita HTTPS para usar la cámara.');
-    }
-  </script>
-</body>
+      <a-entity mindar-image-target="targetIndex: 0">
+        <a-plane src="#card" position="0 0 0" height="0.552" width="1" rotation="0 0 0"></a-plane>
+        <a-gltf-model rotation="0 0 0 " position="0 0 0.1" scale="0.005 0.005 0.005" src="#avatarModel"
+          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
+        >
+      </a-entity>
+    </a-scene>
+  </body>
 </html>
