@@ -5,122 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kurt WebAR</title>
 
-  <!-- A-Frame y MindAR (vías CDN) -->
+  <!-- A-Frame + MindAR -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
+  <!-- Sin estilos de fondo: nada que ponga el body en negro -->
   <style>
-    html, body { margin:0; height:100%; overflow:hidden; background:#000; }
-    /* UI flotante arriba: instrucciones */
-    #ui-top {
-      position: fixed; left: 0; right: 0; top: 0;
-      display: flex; justify-content: center; pointer-events: none;
-      z-index: 10; padding: 10px;
-    }
-    #hint {
-      background: rgba(0,0,0,.45); color:#fff; font: 14px/1.3 system-ui, Arial, sans-serif;
-      padding: 6px 10px; border-radius: 10px; pointer-events: auto;
-    }
-    /* Botonera inferior */
-    #ui-bottom {
-      position: fixed; left: 0; right: 0; bottom: 0;
-      display: flex; justify-content: center; gap:12px;
-      z-index: 10; padding: 16px 12px;
-    }
-    .btn {
-      font: 16px/1.2 system-ui, Arial, sans-serif;
-      padding: 12px 18px; border-radius: 999px; border:0;
-      background:#23a559; color:#fff;
-      box-shadow: 0 6px 16px rgba(0,0,0,.25);
-    }
-    .btn:active { transform: translateY(1px); }
+    html, body { margin:0; height:100%; overflow:hidden; } /* sin background */
   </style>
 </head>
 <body>
-  <!-- UI superior: pequeño aviso -->
-  <div id="ui-top"><div id="hint">Enfoca tu <b>QR</b> para ver a Kurt • Pulsa <b>Foto</b> para capturar</div></div>
-
-  <!-- Escena AR
-       IMPORTANTE: imageTargetSrc apunta a TU targets.mind (compilado desde el QR) -->
+  <!-- Escena AR: apúntale a TU targets.mind (del QR) -->
   <a-scene
-    mindar-image="imageTargetSrc: ./targets.mind; filterMinCF:0.0001; filterBeta:0.001"
+    mindar-image="imageTargetSrc: ./targets.mind"
     color-space="sRGB"
     renderer="colorManagement: true, physicallyCorrectLights: true, antialias: true"
     vr-mode-ui="enabled: false"
-    device-orientation-permission-ui="enabled: false"
-    screenshot
-  >
+    device-orientation-permission-ui="enabled: false">
+
     <a-assets>
-      <!-- Tu imagen de Kurt (PNG con transparencia). Colócala en la raíz del repo -->
+      <!-- Tu ilustración -->
       <img id="kurt" src="./kurt.png" crossorigin="anonymous" />
     </a-assets>
 
-    <!-- Cámara sin controles (MindAR controla el video de fondo) -->
-    <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+    <!-- Cámara (MindAR gestiona el vídeo de fondo) -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Target 0 = el primer (y único) target dentro de targets.mind (tu QR) -->
+    <!-- Cuando se detecte el target (índice 0), se muestra la imagen fija -->
     <a-entity mindar-image-target="targetIndex: 0">
-
-      <!-- Mostramos la imagen como un plano con transparencia.
-           width=1 significa que ocupa el ancho del target (~1 unidad MindAR)
-           Ajusta height según tu arte para que no se deforme -->
+      <!-- Ajusta width/height según quieras el tamaño de Kurt sobre el QR -->
       <a-plane
         src="#kurt"
         position="0 0 0.05"
         rotation="0 0 0"
         width="1"
         height="1.3"
-        material="transparent:true"
-      ></a-plane>
-
-      <!-- Animación muy suave (respiración ligera) opcional -->
-      <a-animation
-        attribute="position"
-        from="0 0 0.05"
-        to="0 0.03 0.05"
-        dur="1500"
-        direction="alternate"
-        easing="ease-in-out-sine"
-        repeat="indefinite"
-      ></a-animation>
-
+        material="transparent: true">
+      </a-plane>
     </a-entity>
   </a-scene>
-
-  <!-- UI inferior: botón Foto -->
-  <div id="ui-bottom">
-    <button id="btnPhoto" class="btn">📸 Foto</button>
-  </div>
-
-  <script>
-    // Captura de pantalla: usa el componente 'screenshot' de A-Frame.
-    // En móviles iOS el "download" puede no funcionar; abrimos la imagen en una pestaña nueva.
-    const sceneEl = document.querySelector('a-scene');
-    const btn = document.getElementById('btnPhoto');
-
-    btn.addEventListener('click', () => {
-      try {
-        // Fuerza captura del canvas de WebGL (incluye el vídeo de la cámara + la escena)
-        const data = sceneEl.components.screenshot.getCanvas('perspective').toDataURL('image/png');
-
-        // Intenta descarga directa…
-        const a = document.createElement('a');
-        a.href = data;
-        a.download = 'Kurt_WebAR.png';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-
-        // …y también abre en nueva pestaña (fallback para iOS)
-        setTimeout(() => {
-          const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-          if (isIOS) window.open(data, '_blank');
-        }, 300);
-      } catch (e) {
-        console.error(e);
-        alert('No pude hacer la captura. Reintenta o prueba desde el navegador del sistema.');
-      }
-    });
-  </script>
 </body>
 </html>
