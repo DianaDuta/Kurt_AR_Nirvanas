@@ -8,8 +8,6 @@
     <!-- Librerías necesarias -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-    <!-- Animación por spritesheet -->
-    <script src="https://cdn.jsdelivr.net/npm/aframe-sprite-animation-component@3.8.0/dist/aframe-sprite-animation-component.min.js"></script>
 
     <style>
       #btnPhoto{
@@ -38,7 +36,7 @@
       device-orientation-permission-ui="enabled: false">
 
       <a-assets timeout="60000">
-        <!-- Spritesheet 3x1 -->
+        <!-- Spritesheet horizontal 3×1 (frames: reposo, mano sube, calada) -->
         <img id="kurtSheet"
              src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/spritesheet_kurt.png"
              crossorigin="anonymous">
@@ -49,12 +47,11 @@
       <a-entity mindar-image-target="targetIndex: 0">
         <a-plane
           id="kurtPlane"
-          src="#kurtSheet"
           position="0 0 0.02"
           width="1"
           height="1.3"
-          material="transparent: true; alphaTest: 0.5"
-          sprite-animation="rows:1; cols:3; frameCount:3; fps:0; loop:true;">
+          material="shader: flat; transparent: true; alphaTest: 0.5; src: #kurtSheet"
+          sprite-sheet="rows:1; cols:3; frameCount:3; fps:7; pingpong:true; autoplay:false;">
         </a-plane>
       </a-entity>
     </a-scene>
@@ -62,27 +59,107 @@
     <button id="btnPhoto" disabled>Foto</button>
 
     <script>
-      (function () {
-        const scene = document.querySelector('a-scene');
-        const btn   = document.getElementById('btnPhoto');
+      // --- Componente de animación por spritesheet (sin librerías externas) ---
+      AFRAME.registerComponent('sprite-sheet', {
+        schema: {
+          rows:       { type: 'int', default: 1 },
+          cols:       { type: 'int', default: 3 },
+          frameCount: { type: 'int', default: 3 },
+          fps:        { type: 'number', default: 7 },
+          loop:       { type: 'boolean', default: true },
+          autoplay:   { type: 'boolean', default: false },
+          pingpong:   { type: 'boolean', default: true } // 0-1-2-1-0...
+        },
+        init: function () {
+          this._frame = 0;
+          this._dir = 1;           // Dirección para ping-pong
+          this._accum = 0;
+          this._running = !!this.data.autoplay;
+          this._map = null;
 
-        // Arranca/pausa la animación cuando el target se detecta/pierde
+          this._setupTexture = this._setupTexture.bind(this);
+          this._setupTexture();
+          this.el.addEventListener('object3dset', this._setupTexture);
+        },
+        remove: function () {
+          this.el.removeEventListener('object3dset', this._setupTexture);
+        },
+        _setupTexture: function () {
+          const mesh = this.el.getObject3D('mesh');
+          if (!mesh) return;
+
+          let mat = mesh.material;
+          if (Array.isArray(mat)) mat = mat[0];
+          if (!mat || !mat.map) return;
+
+          this._map = mat.map;
+          const map = this._map;
+
+          map.wrapS = THREE.RepeatWrapping;
+          map.wrapT = THREE.RepeatWrapping;
+
+          this._u = 1 / this.data.cols;
+          this._v = 1 / this.data.rows;
+
+          map.repeat.set(this._u, this._v);
+          this._applyFrame(0);
+          map.needsUpdate = true;
+        },
+        _applyFrame: function (i) {
+          if (!this._map) return;
+          const cols = this.data.cols;
+          const rows = this.data.rows;
+
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+
+          // Origen (0,0) abajo-izquierda -> invertimos Y para sprites típicos
+          const u = col / cols;
+          const v = 1 - (row + 1) / rows;
+
+          this._map.offset.set(u, v);
+        },
+        tick: function (time, dt) {
+          if (!this._running || !this._map || this.data.fps <= 0) return;
+
+          this._accum += dt;
+          const msPerFrame = 1000 / this.data.fps;
+
+          while (this._accum >= msPerFrame) {
+            this._accum -= msPerFrame;
+
+            if (this.data.pingpong && this.data.frameCount > 1) {
+              this._frame += this._dir;
+              if (this._frame >= this.data.frameCount - 1 || this._frame <= 0) {
+                this._dir *= -1;
+              }
+            } else {
+              this._frame = (this._frame + 1) % this.data.frameCount;
+            }
+
+            this._applyFrame(this._frame);
+          }
+        },
+        start: function () { this._running = true; },
+        stop:  function () { this._running = false; }
+      });
+
+      (function () {
+        const scene  = document.querySelector('a-scene');
+        const btn    = document.getElementById('btnPhoto');
         const target = document.querySelector('[mindar-image-target]');
         const plane  = document.getElementById('kurtPlane');
 
+        // Arranca/pausa la animación al detectar/perder el target
         target.addEventListener('targetFound', () => {
-          // Empieza la animación (fps > 0)
-          plane.setAttribute('sprite-animation', 'rows:1; cols:3; frameCount:3; fps:6; loop:true;');
+          plane.components['sprite-sheet']?.start();
         });
-
         target.addEventListener('targetLost', () => {
-          // Pausa la animación (fps = 0)
-          plane.setAttribute('sprite-animation', 'rows:1; cols:3; frameCount:3; fps:0; loop:true;');
+          plane.components['sprite-sheet']?.stop();
         });
 
-        // Espera a que A-Frame inicie el renderer/canvas
+        // Habilitar botón foto cuando la cámara esté lista
         scene.addEventListener('renderstart', () => {
-          // Habilita el botón cuando el vídeo (cámara) esté listo
           waitForVideoReady().then(() => {
             btn.disabled = false;
           }).catch(err => {
@@ -95,9 +172,8 @@
           const start = performance.now();
           while (true) {
             const sys = scene.systems['mindar-image-system'] || scene.systems['mindar-image'];
-            const video = sys && (sys.video || sys._video);
+            const video = sys && (sys.video || sys._Video || sys._video);
             if (video && video.readyState >= 2 && video.videoWidth > 0) return video;
-
             if (performance.now() - start > timeoutMs) {
               throw new Error('Video no disponible tras esperar suficiente tiempo');
             }
@@ -108,27 +184,15 @@
         async function composeAndDownload() {
           const renderer = scene.renderer;
           const glCanvas = renderer && renderer.domElement;
-
-          if (!glCanvas) {
-            alert('El canvas aún no está listo. Espera un momento y vuelve a probar.');
-            return;
-          }
+          if (!glCanvas) { alert('El canvas aún no está listo.'); return; }
 
           let video;
-          try {
-            video = await waitForVideoReady(5000);
-          } catch {
-            alert('La cámara aún no está lista. Acepta permisos y reintenta.');
-            return;
-          }
+          try { video = await waitForVideoReady(5000); }
+          catch { alert('La cámara aún no está lista.'); return; }
 
-          // Espera 1 frame para asegurar que el buffer WebGL está dibujado
           await new Promise(r => requestAnimationFrame(r));
 
-          const vw = video.videoWidth;
-          const vh = video.videoHeight;
-
-          // Detecta orientación (si la pantalla es vertical y el vídeo llega apaisado)
+          const vw = video.videoWidth, vh = video.videoHeight;
           const isPortrait = window.innerHeight > window.innerWidth && vw > vh;
 
           const comp = document.createElement('canvas');
@@ -136,33 +200,26 @@
 
           try {
             if (isPortrait) {
-              comp.width = vh;
-              comp.height = vw;
-              ctx.translate(comp.width, 0);
-              ctx.rotate(Math.PI / 2);
+              comp.width = vh; comp.height = vw;
+              ctx.translate(comp.width, 0); ctx.rotate(Math.PI / 2);
               ctx.drawImage(video, 0, 0, vw, vh);
               ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
             } else {
-              comp.width = vw;
-              comp.height = vh;
+              comp.width = vw; comp.height = vh;
               ctx.drawImage(video, 0, 0, vw, vh);
               ctx.drawImage(glCanvas, 0, 0, glCanvas.width, glCanvas.height, 0, 0, vw, vh);
             }
 
             const dataURL = comp.toDataURL('image/png');
-
             const a = document.createElement('a');
-            a.href = dataURL;
-            a.download = 'Kurt_WebAR.png';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
+            a.href = dataURL; a.download = 'Kurt_WebAR.png';
+            document.body.appendChild(a); a.click(); a.remove();
 
             const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
             if (isIOS) setTimeout(() => window.open(dataURL, '_blank'), 200);
           } catch (e) {
             console.error(e);
-            alert('No se pudo generar la imagen. Si ves este error a menudo, es por CORS/seguridad del navegador.');
+            alert('No se pudo generar la imagen (CORS/seguridad del navegador).');
           }
         }
 
