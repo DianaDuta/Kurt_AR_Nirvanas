@@ -36,9 +36,9 @@
       device-orientation-permission-ui="enabled: false">
 
       <a-assets timeout="60000">
-        <!-- Spritesheet horizontal 3×1 (frames: reposo, mano sube, calada) -->
-        <img id="kurtSheet"
-             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/spritesheet_kurt.png"
+        <!-- UNA sola imagen PNG con transparencia -->
+        <img id="kurtImg"
+             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt.png"
              crossorigin="anonymous">
       </a-assets>
 
@@ -48,10 +48,7 @@
         <a-plane
           id="kurtPlane"
           position="0 0 0.02"
-          width="1"
-          height="1.3"
-          material="shader: flat; transparent: true; alphaTest: 0.5; src: #kurtSheet"
-          sprite-sheet="rows:1; cols:3; frameCount:3; fps:7; pingpong:true; autoplay:false;">
+          material="shader: flat; transparent: true; alphaTest: 0.5; src: #kurtImg">
         </a-plane>
       </a-entity>
     </a-scene>
@@ -59,106 +56,42 @@
     <button id="btnPhoto" disabled>Foto</button>
 
     <script>
-      // --- Componente de animación por spritesheet (sin librerías externas) ---
-      AFRAME.registerComponent('sprite-sheet', {
-        schema: {
-          rows:       { type: 'int', default: 1 },
-          cols:       { type: 'int', default: 3 },
-          frameCount: { type: 'int', default: 3 },
-          fps:        { type: 'number', default: 7 },
-          loop:       { type: 'boolean', default: true },
-          autoplay:   { type: 'boolean', default: false },
-          pingpong:   { type: 'boolean', default: true } // 0-1-2-1-0...
-        },
-        init: function () {
-          this._frame = 0;
-          this._dir = 1;           // Dirección para ping-pong
-          this._accum = 0;
-          this._running = !!this.data.autoplay;
-          this._map = null;
-
-          this._setupTexture = this._setupTexture.bind(this);
-          this._setupTexture();
-          this.el.addEventListener('object3dset', this._setupTexture);
-        },
-        remove: function () {
-          this.el.removeEventListener('object3dset', this._setupTexture);
-        },
-        _setupTexture: function () {
-          const mesh = this.el.getObject3D('mesh');
-          if (!mesh) return;
-
-          let mat = mesh.material;
-          if (Array.isArray(mat)) mat = mat[0];
-          if (!mat || !mat.map) return;
-
-          this._map = mat.map;
-          const map = this._map;
-
-          map.wrapS = THREE.RepeatWrapping;
-          map.wrapT = THREE.RepeatWrapping;
-
-          this._u = 1 / this.data.cols;
-          this._v = 1 / this.data.rows;
-
-          map.repeat.set(this._u, this._v);
-          this._applyFrame(0);
-          map.needsUpdate = true;
-        },
-        _applyFrame: function (i) {
-          if (!this._map) return;
-          const cols = this.data.cols;
-          const rows = this.data.rows;
-
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-
-          // Origen (0,0) abajo-izquierda -> invertimos Y para sprites típicos
-          const u = col / cols;
-          const v = 1 - (row + 1) / rows;
-
-          this._map.offset.set(u, v);
-        },
-        tick: function (time, dt) {
-          if (!this._running || !this._map || this.data.fps <= 0) return;
-
-          this._accum += dt;
-          const msPerFrame = 1000 / this.data.fps;
-
-          while (this._accum >= msPerFrame) {
-            this._accum -= msPerFrame;
-
-            if (this.data.pingpong && this.data.frameCount > 1) {
-              this._frame += this._dir;
-              if (this._frame >= this.data.frameCount - 1 || this._frame <= 0) {
-                this._dir *= -1;
-              }
-            } else {
-              this._frame = (this._frame + 1) % this.data.frameCount;
-            }
-
-            this._applyFrame(this._frame);
-          }
-        },
-        start: function () { this._running = true; },
-        stop:  function () { this._running = false; }
-      });
-
       (function () {
+        // === Ajustes de escala real ===
+        // Cambia esto por el ANCHO REAL (en cm) de tu target impreso:
+        const TARGET_WIDTH_CM = 12.0;   // <-- EJEMPLO: 12 cm de ancho físico del target
+        // Altura real deseada de Kurt en cm (180 = 1,80 m)
+        const KURT_HEIGHT_CM  = 180;
+
         const scene  = document.querySelector('a-scene');
         const btn    = document.getElementById('btnPhoto');
-        const target = document.querySelector('[mindar-image-target]');
         const plane  = document.getElementById('kurtPlane');
+        const img    = document.getElementById('kurtImg');
 
-        // Arranca/pausa la animación al detectar/perder el target
-        target.addEventListener('targetFound', () => {
-          plane.components['sprite-sheet']?.start();
-        });
-        target.addEventListener('targetLost', () => {
-          plane.components['sprite-sheet']?.stop();
+        // Cuando la textura esté lista, calculamos tamaño real
+        img.addEventListener('load', () => {
+          // 1 unidad en MindAR = ancho del target (normalizado a 1)
+          // Unidades por metro = 1 / (anchoTarget_en_metros)
+          const targetWidthM = TARGET_WIDTH_CM / 100;
+          const unitsPerMeter = 1 / targetWidthM;
+
+          // Altura deseada en metros -> a unidades MindAR
+          const kurtHeightM = KURT_HEIGHT_CM / 100;
+          const planeHeightUnits = kurtHeightM * unitsPerMeter;
+
+          // Mantener proporción del PNG
+          const imgW = img.naturalWidth;
+          const imgH = img.naturalHeight;
+          const aspect = imgW / imgH;
+
+          const planeWidthUnits = planeHeightUnits * aspect;
+
+          // Aplicar tamaño al <a-plane>
+          plane.setAttribute('height', planeHeightUnits);
+          plane.setAttribute('width',  planeWidthUnits);
         });
 
-        // Habilitar botón foto cuando la cámara esté lista
+        // === Habilitar botón foto cuando la cámara esté lista ===
         scene.addEventListener('renderstart', () => {
           waitForVideoReady().then(() => {
             btn.disabled = false;
