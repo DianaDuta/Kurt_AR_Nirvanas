@@ -10,7 +10,13 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-      #btnPhoto{
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+
+      #btnPhoto {
         position: fixed;
         left: 50%;
         transform: translateX(-50%);
@@ -24,7 +30,11 @@
         font: 16px/1.2 system-ui, Arial, sans-serif;
         cursor: pointer;
       }
-      #btnPhoto[disabled] { opacity:.5; cursor:not-allowed; }
+
+      #btnPhoto[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     </style>
   </head>
 
@@ -35,53 +45,51 @@
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
 
+      <!-- Recursos de la animación -->
       <a-assets timeout="60000">
-        <!-- Se cargan los recursos, que en este caso son las imágenes para hacer la animación -->
-        <img id="kurt1"
-             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt1.png"
-             crossorigin="anonymous">
-        <img id="kurt2"
-             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt2.png"
-             crossorigin="anonymous">
-        <img id="kurt3"
-             src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt3.png"
-             crossorigin="anonymous">
+        <img
+          id="kurt1"
+          src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt1.png"
+          crossorigin="anonymous" />
+        <img
+          id="kurt2"
+          src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt2.png"
+          crossorigin="anonymous" />
+        <img
+          id="kurt3"
+          src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt3.png"
+          crossorigin="anonymous" />
       </a-assets>
 
       <a-camera look-controls="enabled: false"></a-camera>
-      <!-- El src inicial es #kurt1. El resto de fotogramas (kurt2, kurt3) los vamos cambiando desde JavaScript.
-          shader: flat evita brillos raros y hace que la ilustración se vea como en 2D.
-          transparent: true; alphaTest: 0.5 respeta la transparencia del PNG y recorta bien el contorno de Kurt.-->
-      <!-- <a-entity id="kurtTarget" mindar-image-target="targetIndex: 0">
-        <a-plane
-          id="kurtPlane"
-          position="0 0 0.02"
-          material="shader: flat; transparent: true; alphaTest: 0.5; src: #kurt1">
-        </a-plane>
-      </a-entity> -->
 
-      <a-entity id="kurtTarget" mindar-image-target="targetIndex: 0"></a-entity>  <!-- Contenedor para la "respiración" -->
-        <a-entity id="kurtContainer"
-                  position="0 0 0.02"
-                  animation="property: position;
-                            to: 0 0.03 0.02;
-                            dir: alternate;
-                            loop: true;
-                            dur: 2800;
-                            easing: easeInOutSine">
+      <!-- Target de MindAR -->
+      <a-entity id="kurtTarget" mindar-image-target="targetIndex: 0">
+        <!-- Contenedor para la "respiración" de Kurt -->
+        <a-entity
+          id="kurtContainer"
+          position="0 0 0.02"
+          animation="property: position;
+                     to: 0 0.03 0.02;
+                     dir: alternate;
+                     loop: true;
+                     dur: 2800;
+                     easing: easeInOutSine">
 
           <!-- Plano A (visible al inicio) -->
-          <a-plane id="kurtPlaneA"
-                  material="shader: flat; transparent: true; alphaTest: 0.5; opacity: 1; src: #kurt1"
-                  animation__fadein="property: material.opacity; to: 1; dur: 250; startEvents: fadein"
-                  animation__fadeout="property: material.opacity; to: 0; dur: 250; startEvents: fadeout">
+          <a-plane
+            id="kurtPlaneA"
+            material="shader: flat; transparent: true; alphaTest: 0.5; opacity: 1; src: #kurt1"
+            animation__fadein="property: material.opacity; to: 1; dur: 250; startEvents: fadein"
+            animation__fadeout="property: material.opacity; to: 0; dur: 250; startEvents: fadeout">
           </a-plane>
 
           <!-- Plano B (oculto al inicio) -->
-          <a-plane id="kurtPlaneB"
-                  material="shader: flat; transparent: true; alphaTest: 0.5; opacity: 0; src: #kurt2"
-                  animation__fadein="property: material.opacity; to: 1; dur: 250; startEvents: fadein"
-                  animation__fadeout="property: material.opacity; to: 0; dur: 250; startEvents: fadeout">
+          <a-plane
+            id="kurtPlaneB"
+            material="shader: flat; transparent: true; alphaTest: 0.5; opacity: 0; src: #kurt2"
+            animation__fadein="property: material.opacity; to: 1; dur: 250; startEvents: fadein"
+            animation__fadeout="property: material.opacity; to: 0; dur: 250; startEvents: fadeout">
           </a-plane>
 
         </a-entity>
@@ -95,35 +103,32 @@
         // ===========================
         // 1) ESCALA REALISTA DE KURT
         // ===========================
+        const TARGET_WIDTH_CM = 12.0; // ancho físico del QR
+        const KURT_HEIGHT_CM = 20.0; // altura física deseada de Kurt
 
-        // Cambia esto por el ANCHO REAL (en cm) de tu target impreso:
-        const TARGET_WIDTH_CM = 12.0;   // <-- EJEMPLO: 12 cm de ancho físico del target
-        // Altura real deseada de Kurt en cm (180 = 1,80 m)
-        const KURT_HEIGHT_CM  = 20; // <-- EJEMPLO: 180 cm de alto de Kurt . 20 para que no se salga de la cámara
-
-        const scene  = document.querySelector('a-scene');
-        const btn    = document.getElementById('btnPhoto');
-        const plane  = document.getElementById('kurtPlane');
-        const baseImg    = document.getElementById('kurt1');
+        const scene = document.querySelector("a-scene");
+        const btn = document.getElementById("btnPhoto");
+        const planeA = document.getElementById("kurtPlaneA");
+        const planeB = document.getElementById("kurtPlaneB");
+        const baseImg = document.getElementById("kurt1");
 
         function ajustarEscalaSegunImagen() {
-          // 1 unidad MindAR = ancho del target
           const targetWidthM = TARGET_WIDTH_CM / 100;
           const unitsPerMeter = 1 / targetWidthM;
 
-          // Altura deseada de Kurt en metros -> unidades MindAR
           const kurtHeightM = KURT_HEIGHT_CM / 100;
           const planeHeightUnits = kurtHeightM * unitsPerMeter;
 
-          // Mantener proporción de la imagen
           const imgW = baseImg.naturalWidth;
           const imgH = baseImg.naturalHeight;
           const aspect = imgW / imgH;
 
           const planeWidthUnits = planeHeightUnits * aspect;
 
-          plane.setAttribute("height", planeHeightUnits);
-          plane.setAttribute("width", planeWidthUnits);
+          [planeA, planeB].forEach((p) => {
+            p.setAttribute("height", planeHeightUnits);
+            p.setAttribute("width", planeWidthUnits);
+          });
         }
 
         if (baseImg.complete) {
@@ -133,36 +138,48 @@
         }
 
         // =================================
-        // 2) ANIMACIÓN LENTA Y ORGÁNICA DE FUMAR
+        // 2) ANIMACIÓN LENTA + CROSS-FADE
         // =================================
-
         const frames = [
-          { selector: "#kurt1", baseDuration: 1500 }, // mira al frente
-          { selector: "#kurt2", baseDuration: 900 },  // mano subiendo
-          { selector: "#kurt3", baseDuration: 1300 }, // casi en la boca
+          { selector: "#kurt1", baseDuration: 1500 },
+          { selector: "#kurt2", baseDuration: 900 },
+          { selector: "#kurt3", baseDuration: 1300 },
         ];
 
         let currentFrame = 0;
         let isAnimating = false;
         let animTimeout = null;
 
-        function aplicarFrame(frameIndex) {
+        // Plano visible/oculto para el cross-fade
+        let visiblePlane = planeA;
+        let hiddenPlane = planeB;
+
+        function crossFadeTo(frameIndex) {
           const frame = frames[frameIndex];
-          plane.setAttribute("material", "src", frame.selector);
+
+          // El plano oculto carga el nuevo fotograma
+          hiddenPlane.setAttribute("material", "src", frame.selector);
+
+          // Fundimos
+          hiddenPlane.emit("fadein");
+          visiblePlane.emit("fadeout");
+
+          // Intercambiamos referencias
+          const tmp = visiblePlane;
+          visiblePlane = hiddenPlane;
+          hiddenPlane = tmp;
         }
 
         function programarSiguienteFrame() {
           if (!isAnimating) return;
 
           const frame = frames[currentFrame];
-
-          // Le añadimos una pequeña variación aleatoria
-          const variacion = frame.baseDuration * (Math.random() * 0.4 - 0.2); // -20%..+20%
+          const variacion = frame.baseDuration * (Math.random() * 0.4 - 0.2);
           const dur = frame.baseDuration + variacion;
 
           animTimeout = setTimeout(() => {
             currentFrame = (currentFrame + 1) % frames.length;
-            aplicarFrame(currentFrame);
+            crossFadeTo(currentFrame);
             programarSiguienteFrame();
           }, dur);
         }
@@ -171,7 +188,14 @@
           if (isAnimating) return;
           isAnimating = true;
           currentFrame = 0;
-          aplicarFrame(currentFrame);
+
+          // Estado inicial
+          visiblePlane = planeA;
+          hiddenPlane = planeB;
+          visiblePlane.setAttribute("material", "src", frames[0].selector);
+          visiblePlane.setAttribute("material", "opacity", 1);
+          hiddenPlane.setAttribute("material", "opacity", 0);
+
           programarSiguienteFrame();
         }
 
@@ -183,25 +207,14 @@
           }
         }
 
-        // Además añadimos una leve "respiración" vertical
-        plane.setAttribute(
-          "animation",
-          "property: position; to: 0 0.03 0.02; dir: alternate; loop: true; dur: 2800; easing: easeInOutSine"
-        );
-
-        // Activamos/paramos la animación según si el target está visible
+        // Activar/parar animación según target
         const target = document.getElementById("kurtTarget");
-        target.addEventListener("targetFound", () => {
-          iniciarAnimacion();
-        });
-        target.addEventListener("targetLost", () => {
-          pararAnimacion();
-        });
+        target.addEventListener("targetFound", iniciarAnimacion);
+        target.addEventListener("targetLost", pararAnimacion);
 
-        // =================================
-        // 3) BOTÓN FOTO (IGUAL QUE ANTES)
-        // =================================
-
+        // ===========================
+        // 3) BOTÓN FOTO
+        // ===========================
         scene.addEventListener("renderstart", () => {
           waitForVideoReady()
             .then(() => {
@@ -249,8 +262,8 @@
 
           await new Promise((r) => requestAnimationFrame(r));
 
-          const vw = video.videoWidth,
-            vh = video.videoHeight;
+          const vw = video.videoWidth;
+          const vh = video.videoHeight;
           const isPortrait =
             window.innerHeight > window.innerWidth && vw > vh;
 
