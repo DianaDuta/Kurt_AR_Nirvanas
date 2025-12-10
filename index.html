@@ -52,12 +52,39 @@
       <!-- El src inicial es #kurt1. El resto de fotogramas (kurt2, kurt3) los vamos cambiando desde JavaScript.
           shader: flat evita brillos raros y hace que la ilustración se vea como en 2D.
           transparent: true; alphaTest: 0.5 respeta la transparencia del PNG y recorta bien el contorno de Kurt.-->
-      <a-entity id="kurtTarget" mindar-image-target="targetIndex: 0">
+      <!-- <a-entity id="kurtTarget" mindar-image-target="targetIndex: 0">
         <a-plane
           id="kurtPlane"
           position="0 0 0.02"
           material="shader: flat; transparent: true; alphaTest: 0.5; src: #kurt1">
         </a-plane>
+      </a-entity> -->
+
+      <a-entity id="kurtTarget" mindar-image-target="targetIndex: 0"></a-entity>  <!-- Contenedor para la "respiración" -->
+        <a-entity id="kurtContainer"
+                  position="0 0 0.02"
+                  animation="property: position;
+                            to: 0 0.03 0.02;
+                            dir: alternate;
+                            loop: true;
+                            dur: 2800;
+                            easing: easeInOutSine">
+
+          <!-- Plano A (visible al inicio) -->
+          <a-plane id="kurtPlaneA"
+                  material="shader: flat; transparent: true; alphaTest: 0.5; opacity: 1; src: #kurt1"
+                  animation__fadein="property: material.opacity; to: 1; dur: 250; startEvents: fadein"
+                  animation__fadeout="property: material.opacity; to: 0; dur: 250; startEvents: fadeout">
+          </a-plane>
+
+          <!-- Plano B (oculto al inicio) -->
+          <a-plane id="kurtPlaneB"
+                  material="shader: flat; transparent: true; alphaTest: 0.5; opacity: 0; src: #kurt2"
+                  animation__fadein="property: material.opacity; to: 1; dur: 250; startEvents: fadein"
+                  animation__fadeout="property: material.opacity; to: 0; dur: 250; startEvents: fadeout">
+          </a-plane>
+
+        </a-entity>
       </a-entity>
     </a-scene>
 
