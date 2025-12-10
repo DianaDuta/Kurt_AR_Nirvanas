@@ -10,11 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-        background: #000;
-      }
+      /* Dejamos el fondo por defecto del navegador (blanco) para evitar
+         la sensación de "todo negro" si el vídeo tarda en aparecer. */
 
       #btnPhoto {
         position: fixed;
@@ -30,7 +27,6 @@
         font: 16px/1.2 system-ui, Arial, sans-serif;
         cursor: pointer;
       }
-
       #btnPhoto[disabled] {
         opacity: 0.5;
         cursor: not-allowed;
@@ -45,8 +41,8 @@
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false">
 
-      <!-- Recursos de la animación -->
       <a-assets timeout="60000">
+        <!-- Se cargan los recursos, que en este caso son las imágenes para hacer la animación -->
         <img
           id="kurt1"
           src="https://cdn.jsdelivr.net/gh/DianaDuta/Kurt_AR_Nirvanas@main/kurt1.png"
@@ -103,8 +99,11 @@
         // ===========================
         // 1) ESCALA REALISTA DE KURT
         // ===========================
-        const TARGET_WIDTH_CM = 12.0; // ancho físico del QR
-        const KURT_HEIGHT_CM = 20.0; // altura física deseada de Kurt
+
+        // Cambia esto por el ANCHO REAL (en cm) de tu target impreso:
+        const TARGET_WIDTH_CM = 12.0; // Ejemplo: 12 cm de ancho físico del target
+        // Altura real deseada de Kurt en cm (20 para que no se salga de la cámara)
+        const KURT_HEIGHT_CM = 20;
 
         const scene = document.querySelector("a-scene");
         const btn = document.getElementById("btnPhoto");
@@ -113,18 +112,22 @@
         const baseImg = document.getElementById("kurt1");
 
         function ajustarEscalaSegunImagen() {
+          // 1 unidad MindAR = ancho del target
           const targetWidthM = TARGET_WIDTH_CM / 100;
           const unitsPerMeter = 1 / targetWidthM;
 
+          // Altura deseada de Kurt en metros -> unidades MindAR
           const kurtHeightM = KURT_HEIGHT_CM / 100;
           const planeHeightUnits = kurtHeightM * unitsPerMeter;
 
+          // Mantener proporción de la imagen
           const imgW = baseImg.naturalWidth;
           const imgH = baseImg.naturalHeight;
           const aspect = imgW / imgH;
 
           const planeWidthUnits = planeHeightUnits * aspect;
 
+          // Aplicar el tamaño a los dos planos del cross-fade
           [planeA, planeB].forEach((p) => {
             p.setAttribute("height", planeHeightUnits);
             p.setAttribute("width", planeWidthUnits);
@@ -138,19 +141,20 @@
         }
 
         // =================================
-        // 2) ANIMACIÓN LENTA + CROSS-FADE
+        // 2) ANIMACIÓN LENTA Y ORGÁNICA DE FUMAR (CON CROSS-FADE)
         // =================================
+
         const frames = [
-          { selector: "#kurt1", baseDuration: 1500 },
-          { selector: "#kurt2", baseDuration: 900 },
-          { selector: "#kurt3", baseDuration: 1300 },
+          { selector: "#kurt1", baseDuration: 1500 }, // mira al frente
+          { selector: "#kurt2", baseDuration: 900 }, // mano subiendo
+          { selector: "#kurt3", baseDuration: 1300 }, // casi en la boca
         ];
 
         let currentFrame = 0;
         let isAnimating = false;
         let animTimeout = null;
 
-        // Plano visible/oculto para el cross-fade
+        // Plano actualmente visible y oculto para el cross-fade
         let visiblePlane = planeA;
         let hiddenPlane = planeB;
 
@@ -160,20 +164,22 @@
           // El plano oculto carga el nuevo fotograma
           hiddenPlane.setAttribute("material", "src", frame.selector);
 
-          // Fundimos
+          // Lanzamos los fundidos
           hiddenPlane.emit("fadein");
           visiblePlane.emit("fadeout");
 
-          // Intercambiamos referencias
-          const tmp = visiblePlane;
+          // Intercambiamos referencias (el que estaba oculto pasa a ser visible)
+          const temp = visiblePlane;
           visiblePlane = hiddenPlane;
-          hiddenPlane = tmp;
+          hiddenPlane = temp;
         }
 
         function programarSiguienteFrame() {
           if (!isAnimating) return;
 
           const frame = frames[currentFrame];
+
+          // Pequeña variación aleatoria en la duración (-20% .. +20%)
           const variacion = frame.baseDuration * (Math.random() * 0.4 - 0.2);
           const dur = frame.baseDuration + variacion;
 
@@ -189,9 +195,10 @@
           isAnimating = true;
           currentFrame = 0;
 
-          // Estado inicial
+          // Estado inicial de los planos
           visiblePlane = planeA;
           hiddenPlane = planeB;
+
           visiblePlane.setAttribute("material", "src", frames[0].selector);
           visiblePlane.setAttribute("material", "opacity", 1);
           hiddenPlane.setAttribute("material", "opacity", 0);
@@ -207,14 +214,19 @@
           }
         }
 
-        // Activar/parar animación según target
+        // Activamos/paramos la animación según si el target está visible
         const target = document.getElementById("kurtTarget");
-        target.addEventListener("targetFound", iniciarAnimacion);
-        target.addEventListener("targetLost", pararAnimacion);
+        target.addEventListener("targetFound", () => {
+          iniciarAnimacion();
+        });
+        target.addEventListener("targetLost", () => {
+          pararAnimacion();
+        });
 
-        // ===========================
-        // 3) BOTÓN FOTO
-        // ===========================
+        // =================================
+        // 3) BOTÓN FOTO (IGUAL QUE ANTES)
+        // =================================
+
         scene.addEventListener("renderstart", () => {
           waitForVideoReady()
             .then(() => {
